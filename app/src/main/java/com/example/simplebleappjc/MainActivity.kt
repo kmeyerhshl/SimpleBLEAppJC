@@ -62,7 +62,8 @@ class MainActivity : ComponentActivity() {
         val permissions = listOf(
             android.Manifest.permission.ACCESS_FINE_LOCATION,
             android.Manifest.permission.ACCESS_COARSE_LOCATION,
-            android.Manifest.permission.BLUETOOTH_CONNECT
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_SCAN
         )
 
         val missingPermissions = permissions.filter { permission ->
