@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.simplebleappjc.model.ConnectState
 import com.example.simplebleappjc.model.MainViewModel
 import com.example.simplebleappjc.navigation.MyNavDestination
 
@@ -34,9 +36,11 @@ fun ESP32ControlScreen (
     navController: NavController,
     viewModel: MainViewModel
 ){
-    var selectedDevice by remember { mutableStateOf("") }
-    var isConnected by remember { mutableStateOf(false) }
+    var selectedDevice = viewModel.getDeviceSelected()
     var dataVisibility by remember { mutableStateOf(false) }
+    val connectState by viewModel.connectState.collectAsState()
+    val esp32Data = viewModel.esp32Data.value
+
 
     Column(
         modifier = Modifier
@@ -49,15 +53,27 @@ fun ESP32ControlScreen (
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
-
         Text(
-            text = if (isConnected) "Connected" else "Not Connected",
-            fontSize = 18.sp
+            text = when (connectState) {
+                ConnectState.CONNECTED -> "connected"
+                ConnectState.NOT_CONNECTED -> "not connected"
+                ConnectState.NO_DEVICE -> "no selected device"
+                ConnectState.DEVICE_SELECTED -> "connecting"
+                else -> {
+                    "no selected device"
+                }
+            },
+            fontSize = 18.sp,
+            modifier = Modifier.padding(16.dp)
         )
 
         if (dataVisibility) {
             Text(
-                text = "Some data here",
+                text = "LED Status: ${esp32Data?.ledstatus ?: "N/A"}",
+                fontSize = 20.sp
+            )
+            Text(
+                text = "Potentiometer Array: ${esp32Data.potiArray ?: "N/A"}",
                 fontSize = 20.sp
             )
         }
@@ -65,9 +81,24 @@ fun ESP32ControlScreen (
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SwitchControl("Data Switch") { dataVisibility = it }
-            SwitchControl("LED Switch") { /* handle LED switch */ }
-            SwitchControl("Blink Switch") { /* handle blink switch */ }
+            SwitchControl("Data Switch") { isChecked ->
+                if (isChecked) {
+                    viewModel.startDataLoadJob()
+                    dataVisibility = true
+                } else {
+                    viewModel.cancelDataLoadJob()
+                }
+            }
+            SwitchControl("LED Switch") { isChecked ->
+                if (isChecked) viewModel.ledData.led = "H"
+                else viewModel.ledData.led = "L"
+                viewModel.sendLedData()
+            }
+            SwitchControl("Blink Switch") { isChecked ->
+                if (isChecked) viewModel.ledData.ledBlinken = true
+                else viewModel.ledData.ledBlinken = false
+                viewModel.sendLedData()
+            }
         }
 
         Spacer(modifier = Modifier.height(300.dp))
@@ -76,15 +107,29 @@ fun ESP32ControlScreen (
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Button(
-                onClick = { isConnected = true },
-                modifier = Modifier.weight(1f)
+                onClick = { viewModel.connect() },
+                modifier = Modifier.weight(1f),
+                enabled = when (connectState) {
+                    ConnectState.CONNECTED -> false
+                    ConnectState.NOT_CONNECTED -> true
+                    ConnectState.NO_DEVICE -> false
+                    ConnectState.DEVICE_SELECTED -> true
+                    else -> false
+                }
             ) {
                 Text("Connect")
             }
 
             Button(
-                onClick = { isConnected = false },
-                modifier = Modifier.weight(1f)
+                onClick = { viewModel.disconnect() },
+                modifier = Modifier.weight(1f),
+                enabled = when (connectState) {
+                    ConnectState.CONNECTED -> true
+                    ConnectState.NOT_CONNECTED -> false
+                    ConnectState.NO_DEVICE -> false
+                    ConnectState.DEVICE_SELECTED -> false
+                    else -> false
+                }
             ) {
                 Text("Disconnect")
             }

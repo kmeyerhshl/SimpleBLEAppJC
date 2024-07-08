@@ -1,5 +1,6 @@
 package com.example.simplebleappjc.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,30 +15,55 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import com.example.simplebleappjc.model.MainViewModel
+import com.example.simplebleappjc.navigation.MyNavDestination
 
 @Composable
 fun ManageDeviceScreen (
     navController: NavController,
     viewModel: MainViewModel
 ) {
-    var devices by remember { mutableStateOf(listOf("Device 1", "Device 2", "Device 3")) }
+    val deviceList by viewModel.deviceList.collectAsState()
     var isSearching by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_DESTROY) {
+                viewModel.stopScan()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.stopScan()
+        }
+    }
+
 
     Column(
         modifier = Modifier
@@ -50,17 +76,24 @@ fun ManageDeviceScreen (
                 .height(300.dp)
                 .fillMaxWidth()
         ) {
-            items(devices) { device ->
-                Text(text = device, modifier = Modifier.padding(8.dp))
+            items(deviceList) { device ->
+                Text(
+                    text = device.toString(),
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .clickable {
+                            viewModel.setDeviceSelected(device.toString())
+                            navController.navigate(MyNavDestination.ESP32Control.route)
+                        }
+                )
+                Divider()
             }
         }
 
         Button(
             onClick = {
-                // Start searching for devices
                 isSearching = true
-                // Simulate device search
-                devices = listOf("Device A", "Device B", "Device C")
+                viewModel.startScan()
                 isSearching = false
             },
             modifier = Modifier
